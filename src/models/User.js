@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema({
   },
   passwordConfirm: {
     type: String,
-    required: [true, "The user must confirm the pasword"],
+    required: [true, "Password and Password confirm don't match"],
     validate: {
       validator: function (val) {
         return val === this.password
@@ -40,15 +40,26 @@ const userSchema = new mongoose.Schema({
 });
 
 //PASSWORD HASHING
-userSchema.pre('save', async function (next) {
-  if (!this.isModified("password")) return next()
+userSchema.pre('save', async function () {
+  if (!this.isModified("password")) {
+    return 
+  }
   const saltRound = 12;
   this.password = await bcrypt.hash(this.password, saltRound)
-  next()
+  this.passwordConfirm = undefined;
+  
 }),
   //PASSWORRD HASH COMPARISM
-userSchema.method.comparepassword = async function (candidatePassword) {
+userSchema.methods.comparepassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword,this.password)
+  }
+
+userSchema.methods.changePasswordAfter = function (JWTTimestamp) {
+  if (this.passwordChangedAt) {
+    const changedTimestamp = parseInt(this.passwordChangedAt.getTime() / 1000, 10);
+    return JWTTimestamp < changedTimestamp;
+  }
+  return false;
 }
 
 const User = mongoose.model('User', userSchema);

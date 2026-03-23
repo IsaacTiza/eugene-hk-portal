@@ -4,10 +4,10 @@ export const healthRouter = Router();
 
 healthRouter.get("/health", (req, res) => {
     console.log('GET REQUEST')
-  res.status(200).json({
+res.status(200).json({
     status: "success",
-    message: "API is healthy",
-  });
+    message: "WELCOME TO EUGENE HK-PORTAL API is healthy",
+});
 });
 
 healthRouter.post("/health", (req, res) => {
