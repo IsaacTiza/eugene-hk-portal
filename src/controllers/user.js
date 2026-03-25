@@ -9,18 +9,40 @@ export const register = catchAsync(async (req, res, next) => {
   if (!username || !email || !password || !passwordConfirm) {
     throw new AppError("Please input all required fields", 400);
   }
-console.log("Creating user with data:", { username, email });
   const user = await User.create({
     username,
     email,
     password,
     passwordConfirm,
   });
-console.log("User created successfully:", user);
   res.status(201).json({
     status: "success",
     data: {
-      user,
+      username: user.username,
+      email: user.email
     },
   });
 });
+export const getProfile = catchAsync(async (req, res, next) => { 
+  if (!req.user) throw new AppError('Please Login!', 401)
+  const user = await User.findById(req.user._id)
+  res.status(200).json({
+    status: `success`,
+    data: {
+      username: user.username,
+      email: user.email,
+    }
+  })
+})
+
+export const updateProfile = catchAsync(async (req, res, next) => {
+  if (!req.user) throw new AppError('Please Login!', 401)
+  const { username, email } = req.body
+  const user = await User.findByIdAndUpdate(req.user._id, { username, email }, { new: true, runValidators: true }).select('-_id -__v')
+  res.status(200).json({
+    status: `success`,
+    data: {
+      user
+    }
+  })
+})

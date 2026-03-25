@@ -2,8 +2,10 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import signJWT from "../utils/signJWT.js";
 import AppError from "../utils/appError.js";
+import { catchAsync } from "../utils/catchAsync.js";
+import crypto from "crypto";
 
-export const protect = async (req, res, next) => {
+export const protect = catchAsync(async (req, res, next) => {
   let token;
 
   if (
@@ -35,19 +37,89 @@ export const protect = async (req, res, next) => {
   }
   req.user = user;
   next();
-};
-export const login = async (req, res, next) => {
-    const { email, password } = req.body;
-    if (!email || !password) {
-        throw new AppError('Please provide email and password', 400);
-    }
-    const user = await User.findOne({ email }).select('+password');
-    if (!user || !(await user.comparepassword(password))) {
-        throw new AppError('Incorrect email or password', 401);
-    }
-    const token = signJWT({ id: user._id });
-    res.status(200).json({
-        status: 'success',
-        token
-    });
-}
+});
+export const login = catchAsync(async (req, res, next) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    throw new AppError("Please provide email and password", 400);
+  }
+  const user = await User.findOne({ email }).select("+password");
+  if (!user || !(await user.comparepassword(password))) {
+    throw new AppError("Incorrect email or password", 401);
+  }
+  const token = signJWT({ id: user._id });
+  res.status(200).json({
+    status: "success",
+    token,
+  });
+});
+export const forgotPassword = catchAsync(async (req, res, next) => {
+  const { email } = req.body;
+  if (!email) {
+    throw new AppError("Please provide your email address", 400);
+  }
+  const user = await User.findOne({ email });
+  if (!user) {
+    throw new AppError("There is no user with that email address", 404);
+  }
+  const resetToken = user.createPasswordResetToken();
+  await user.save({ validateBeforeSave: false });
+  const resetURL = `${req.protocol}://${req.get("host")}/eugene-hk-portal/v1/reset-password/${resetToken}`;
+  console.log(resetURL);
+  res.status(200).json({
+    status: "success",
+    message: "Token sent to email!",
+    resetURL,
+  });
+});
+export const resetPassword = catchAsync(async (req, res, next) => {
+
+console.log("Received reset password request with token:", req.params.resetToken);
+
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(req.params.token)
+    .digest("hex");
+
+const user = await User.findOne({
+    passwordResetToken: hashedToken,
+    passwordExpiresAt: { $gt: Date.now() },
+  }).select('+password');
+  if (!user) {
+    throw new AppError("Token Expired!", 401);
+  }
+  
+  const { password, passwordConfirm } = req.body
+  user.password = password;
+  user.passwordConfirm = passwordConfirm
+  user.passwordResetToken = undefined;
+  user.passwordExpiresAt = undefined;
+  await user.save()
+
+  res.status(200).json({
+    status: `success`,
+    message:`Password Changed Succefully!`
+  })
+});
+export const updatePassword = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.user._id).select('+password')
+  const { currentPassword, newPassword, newPasswordConfirm } = req.body
+
+  if (!currentPassword || !newPassword || !newPasswordConfirm) {
+    throw new AppError('Please provide all required fields', 400)
+  }
+  if(!await user.comparepassword(currentPassword)) {
+    throw new AppError('Incorrect current password', 401)
+  }
+  user.password = newPassword
+  user.passwordConfirm = newPasswordConfirm
+  await user.save()
+
+  const newToken = signJWT({ id: user._id })
+
+  res.status(200).json({
+    status: `success`,
+    message: `Password Updated Successfully! Please log in again.`,
+    token: newToken
+  })
+ })
