@@ -4,6 +4,8 @@ import signJWT from "../utils/signJWT.js";
 import AppError from "../utils/appError.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import crypto from "crypto";
+import { use } from "react";
+import { stat } from "fs";
 
 export const protect = catchAsync(async (req, res, next) => {
   let token;
@@ -122,4 +124,37 @@ export const updatePassword = catchAsync(async (req, res, next) => {
     message: `Password Updated Successfully! Please log in again.`,
     token: newToken
   })
- })
+})
+export const restictTo = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      throw new AppError('You do not have permission to perform this action', 403)
+    }
+    next()
+  }
+}
+
+//ADMIN AUTHENTICATION
+export const adminResetPassword = catchAsync(async (req, res, next) => {
+  const user = await User.findOne({ slug: req.params.slug }).select('+password')
+  if (!user) {
+    user = await User.findById(req.params.slug).select('+password')
+  }
+  if (!user) { user = await User.findOne({ email: req.params.slug }).select('+password') }
+  if (!user) {
+    throw new AppError('User not found', 404)
+  }
+  const { newPassword, newPasswordConfirm } = req.body
+
+  if (!newPassword || !newPasswordConfirm) {
+    throw new AppError('Please provide all required fields', 400)
+  }
+  user.password = newPassword
+  user.passwordConfirm = newPasswordConfirm
+  user.save()
+
+  res.status(200).json({
+    status: `success`,
+    message: `Password Updated Successfully! Please log in again.`
+  })
+})

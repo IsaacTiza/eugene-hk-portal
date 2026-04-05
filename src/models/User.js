@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import slugify from "slugify";
 
 const userSchema = new mongoose.Schema(
   {
@@ -18,6 +19,12 @@ const userSchema = new mongoose.Schema(
         if (!value) return value;
         return value.charAt(0).toUpperCase() + value.slice(1);
       },
+    },
+    slug: {
+      type: String,
+      unique: true,
+      lowercase: true,
+      trim: true,
     },
     email: {
       type: String,
@@ -49,6 +56,16 @@ const userSchema = new mongoose.Schema(
         message: "passwords don't match",
       },
     },
+    role: {
+      type: String,
+      enum:['admin', 'user'],
+      default: 'user',
+      
+    },  
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
     passwordResetToken: String,
     passwordExpiresAt: Date,
     passwordChangedAt: Date,
@@ -59,7 +76,7 @@ const userSchema = new mongoose.Schema(
 );
 
 //PASSWORD HASHING
-(userSchema.pre("save", async function () {
+userSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
 
   const saltRound = 12;
@@ -68,10 +85,13 @@ const userSchema = new mongoose.Schema(
   this.passwordChangedAt = Date.now() - 1000;
 }),
   //PASSWORRD HASH COMPARISM
-  (userSchema.methods.comparepassword = async function (candidatePassword) {
+userSchema.methods.comparepassword = async function (candidatePassword) {
     return bcrypt.compare(candidatePassword, this.password);
-  }));
-
+};
+userSchema.pre('save', function (next) {
+  if (!this.isModified('username') || this.isNew) return next();
+  this.slug = slugify(this.username, {lower: true, strict:true, trim:true});
+ })
 userSchema.methods.changePasswordAfter = function (JWTTimestamp) {
   if (this.passwordChangedAt) {
     const changedTimestamp = parseInt(
@@ -82,7 +102,6 @@ userSchema.methods.changePasswordAfter = function (JWTTimestamp) {
   }
   return false;
 };
-
 userSchema.methods.createPasswordResetToken = function () {
   const resetToken = crypto.randomBytes(32).toString('hex');
 
@@ -95,6 +114,7 @@ userSchema.methods.createPasswordResetToken = function () {
 
   return resetToken;
 };
+
 
 const User = mongoose.model("User", userSchema);
 
