@@ -4,8 +4,8 @@ import signJWT from "../utils/signJWT.js";
 import AppError from "../utils/appError.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import crypto from "crypto";
-import { use } from "react";
-import { stat } from "fs";
+import { sendEmail } from "../utils/email.js";
+
 
 export const protect = catchAsync(async (req, res, next) => {
   let token;
@@ -67,6 +67,19 @@ export const forgotPassword = catchAsync(async (req, res, next) => {
   const resetToken = user.createPasswordResetToken();
   await user.save({ validateBeforeSave: false });
   const resetURL = `${req.protocol}://${req.get("host")}/eugene-hk-portal/v1/reset-password/${resetToken}`;
+
+  const response = await sendEmail({
+    to: "i2493053@gmail.com",
+    subject: "Password Reset Request for HK-Portal API",
+    html: `<p>You have requested a password reset. Please click the link below to reset your password:</p><p><a href="${resetURL}">Reset Password</a></p>`,
+  });
+  if (response.error) {
+    console.log("Email sending failed:", response.error);
+    user.passwordResetToken = undefined;
+    user.passwordExpiresAt = undefined;
+    await user.save({ validateBeforeSave: false });
+    throw new AppError("There was an error sending the email. Try again later.", 500);
+  }
   console.log(resetURL);
   res.status(200).json({
     status: "success",

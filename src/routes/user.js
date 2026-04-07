@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { adminHardDeleteUser, adminRegisterUser, adminSoftDeleteUser, adminUpdateProfile, getAllUsers, getProfile, getUserById, register, softDeleteUser, updateProfile } from "../controllers/user.js";
-import { adminResetPassword, forgotPassword, login, protect, resetPassword, updatePassword } from "../middlewares/auth.js";
+import { adminResetPassword, forgotPassword, login, protect, resetPassword, restictTo, updatePassword } from "../middlewares/auth.js";
 
 export const userRouter = Router()
 

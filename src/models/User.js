@@ -77,21 +77,27 @@ const userSchema = new mongoose.Schema(
 
 //PASSWORD HASHING
 userSchema.pre("save", async function () {
+  console.log("password hashing middleware triggered");
   if (!this.isModified("password")) return;
 
   const saltRound = 12;
   this.password = await bcrypt.hash(this.password, saltRound);
   this.passwordConfirm = undefined;
   this.passwordChangedAt = Date.now() - 1000;
-}),
+  console.log("password hashing completed");
+});
+
+userSchema.pre("save", async function () {
+  console.log("slug middleware triggered");
+  if (!this.isModified("username")) return;
+
+  this.slug = slugify(this.username, { lower: true, strict: true, trim: true });
+  console.log("slug middleware completed");
+});
   //PASSWORRD HASH COMPARISM
 userSchema.methods.comparepassword = async function (candidatePassword) {
     return bcrypt.compare(candidatePassword, this.password);
 };
-userSchema.pre('save', function (next) {
-  if (!this.isModified('username') || this.isNew) return next();
-  this.slug = slugify(this.username, {lower: true, strict:true, trim:true});
- })
 userSchema.methods.changePasswordAfter = function (JWTTimestamp) {
   if (this.passwordChangedAt) {
     const changedTimestamp = parseInt(

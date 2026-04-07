@@ -1,10 +1,9 @@
 import AppError from "../utils/appError.js";
 import User from "../models/User.js";
 import { catchAsync } from "../utils/catchAsync.js";
-import e from "express";
 
 export const register = catchAsync(async (req, res, next) => {
-    console.log(req.body)
+    console.log('first logging', req.body)
   const { username, email, password, passwordConfirm } = req.body;
 
   if (!username || !email || !password || !passwordConfirm) {

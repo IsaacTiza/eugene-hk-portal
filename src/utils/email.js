@@ -1,22 +1,28 @@
-import sgMail from '@sendgrid/mail'
-import AppError from './appError.js'
-
-sgMail.setApiKey(process.env.SENDGRID_API_KEY)
+import { Resend } from "resend";
+import AppError from "./appError.js";
 
 export const sendEmail = async ({ to, subject, html }) => {
-    const msg = {
-        to,
-        from: process.env.EMAIL_FROM,
-        subject,
-        html
-    }
+  if (!process.env.RESEND_API_KEY) { 
+    throw new AppError("API key is required to send emails", 500);  
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  
+  if (!to || !subject || !html) {
+    throw new AppError("Missing email fields", 400);
+  }
 
-    try {
-        const response = await sgMail.send(msg)
-        console.log(`Email Sent: `,response[0].statusCode)
-    }
-    catch (err) {
-        console.log(`SendGrid Error`, err.response?.body || err.message)
-        throw new AppError('There was an error sending the email. Please try again later.', 500)
-    }
-}
+  try {
+    const response = await resend.emails.send({
+      from: "onboarding@resend.dev", // default test sender
+      to,
+      subject,
+      html,
+    });
+
+    console.log("Email sent:", response);
+    return response;
+  } catch (err) {
+    console.log("Resend error:", err.message);
+    throw new AppError("Email failed", 500);
+  }
+};
