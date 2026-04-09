@@ -58,10 +58,9 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum:['admin', 'user'],
-      default: 'user',
-      
-    },  
+      enum: ["admin", "user"],
+      default: "user",
+    },
     isDeleted: {
       type: Boolean,
       default: false,
@@ -69,6 +68,65 @@ const userSchema = new mongoose.Schema(
     passwordResetToken: String,
     passwordExpiresAt: Date,
     passwordChangedAt: Date,
+    bio: {
+      type: String,
+      maxlength: 500,
+      trim: true,
+    },
+    age: {
+      type: Number,
+      min: 18,
+      max: 120,
+    },
+    gender: {
+      type: String,
+      enum: ["male", "female", "other"],
+      required: [true, "Please specify your gender"],
+    },
+    occupation: {
+      type: String,
+    },
+    number: {
+      type: String,
+      match: [
+        /^\+?[1-9]\d{1,14}$/,
+        "Please enter a valid phone number with country code",
+      ],
+    },
+    interests: [
+      {
+        type:String,
+      },
+    ],
+    hobbies: [
+      {
+        type: String,
+      },
+    ],
+    profilePicture: {
+      type: String,
+    },
+    location: {
+      type: { type: String, enum: ["Point"], default: "Point" },
+      coordinates: { type: [Number] }, // [longitude, latitude]
+      city: { type: String },
+      country: { type: String },
+    },
+    matchPreferences: {
+      interestedIn: { type: String, enum: ["male", "female", "both"] },
+      ageRange: {
+        min: { type: Number, default: 18 },
+        max: { type: Number, default: 50 },
+      },
+      maxDistance: { type: Number, default: 50 }, // km
+      hobbies: [{ type: String }],
+      interests: [{ type: String }],
+    },
+
+    // ── Meta ──
+    isVerified: { type: Boolean, default: false },
+    isActive: { type: Boolean, default: true },
+    lastActive: { type: Date, default: Date.now },
   },
   {
     timestamps: true,
@@ -94,9 +152,9 @@ userSchema.pre("save", async function () {
   this.slug = slugify(this.username, { lower: true, strict: true, trim: true });
   console.log("slug middleware completed");
 });
-  //PASSWORRD HASH COMPARISM
+//PASSWORRD HASH COMPARISM
 userSchema.methods.comparepassword = async function (candidatePassword) {
-    return bcrypt.compare(candidatePassword, this.password);
+  return bcrypt.compare(candidatePassword, this.password);
 };
 userSchema.methods.changePasswordAfter = function (JWTTimestamp) {
   if (this.passwordChangedAt) {
@@ -109,7 +167,7 @@ userSchema.methods.changePasswordAfter = function (JWTTimestamp) {
   return false;
 };
 userSchema.methods.createPasswordResetToken = function () {
-  const resetToken = crypto.randomBytes(32).toString('hex');
+  const resetToken = crypto.randomBytes(32).toString("hex");
 
   this.passwordResetToken = crypto
     .createHash("sha256")
@@ -121,6 +179,9 @@ userSchema.methods.createPasswordResetToken = function () {
   return resetToken;
 };
 
+userSchema.index({ location: "2dsphere" });
+userSchema.index({ isActive: 1, isDeleted: 1, gender: 1, age: 1 });
+userSchema.index({ lastActive: -1 });
 
 const User = mongoose.model("User", userSchema);
 
