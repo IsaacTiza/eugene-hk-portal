@@ -9,12 +9,14 @@ import { matchingRouter } from "./routes/matching.js";
 import qs from 'qs'
 import { messageRouter } from "./routes/message.js";
 import morgan from "morgan";
+import { globalLimiter } from "./middlewares/rateLimiters.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 //MIDDLEWARES
+app.use(globalLimiter);
 app.use(express.json());
 app.set('query parser', str => qs.parse(str));
 app.use(morgan('dev'));

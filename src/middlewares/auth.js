@@ -51,7 +51,7 @@ export const login = catchAsync(async (req, res, next) => {
     throw new AppError("Incorrect email or password", 401);
   }
   const token = signJWT({ id: user._id });
-  await saveUserJWT(user.username, token);  
+  // await saveUserJWT(user.username, token);  
   res.status(200).json({
     status: "success",
     token,

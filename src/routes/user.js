@@ -23,16 +23,17 @@ import {
   updatePassword,
 } from "../middlewares/auth.js";
 import upload from "../middlewares/upload.js";
+import { authLimiter } from "../middlewares/rateLimiters.js";
 
 export const userRouter = Router();
 export const adminRouter = Router();
 
 //AUTENTICATION
-userRouter.post("/register", register);
-userRouter.post("/login", login);
-userRouter.post("/forgot-password", forgotPassword);
-userRouter.post("/reset-password/:token", resetPassword);
-userRouter.post("/me/update-password", protect, updatePassword);
+userRouter.post("/register",authLimiter, register);
+userRouter.post("/login",authLimiter,  login);
+userRouter.post("/forgot-password",authLimiter, forgotPassword);
+userRouter.post("/reset-password/:token",authLimiter, resetPassword);
+userRouter.post("/me/update-password",authLimiter, protect, updatePassword);
 
 userRouter.get("/me", protect, getProfile);
 userRouter.patch("/me", protect, updateProfile);
