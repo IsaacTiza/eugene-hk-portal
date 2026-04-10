@@ -109,6 +109,7 @@ export const uploadProfilePicture = catchAsync(async (req, res, next) => {
   if (!req.file) return next(new AppError("Please upload an image", 400));
 
   const imageUrl = `${req.protocol}://${req.get("host")}/uploads/profilePictures/${req.file.filename}`;
+  
 
   const user = await User.findByIdAndUpdate(
     req.user.id,
@@ -121,6 +122,7 @@ export const uploadProfilePicture = catchAsync(async (req, res, next) => {
     data: { profilePicture: user.profilePicture },
   });
 });
+
 export const softDeleteUser = catchAsync(async (req, res, next) => {
   if (!req.user) throw new AppError("Please Login!", 401);
   await User.findByIdAndUpdate(req.user._id, { isDeleted: true });
