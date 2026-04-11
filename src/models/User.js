@@ -95,7 +95,7 @@ const userSchema = new mongoose.Schema(
     },
     interests: [
       {
-        type:String,
+        type: String,
       },
     ],
     hobbies: [
@@ -127,6 +127,12 @@ const userSchema = new mongoose.Schema(
     isVerified: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
     lastActive: { type: Date, default: Date.now },
+    fcmToken: {
+      type: String,
+      select: false,
+    },
+    emailVerificationToken: String,
+    emailVerificationExpiresAt: Date,
   },
   {
     timestamps: true,
@@ -175,6 +181,18 @@ userSchema.methods.createPasswordResetToken = function () {
     .digest("hex");
 
   this.passwordExpiresAt = Date.now() + 1000 * 60 * 10;
+
+  return resetToken;
+};
+userSchema.methods.createEmailVerificationToken = function () {
+  const resetToken = crypto.randomBytes(32).toString("hex");
+
+  this.emailVerificationToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  this.emailVerificationExpiresAt = Date.now() + 1000 * 60 * 10;
 
   return resetToken;
 };

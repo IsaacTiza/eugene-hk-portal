@@ -9,6 +9,7 @@ import {
   getProfile,
   getUserById,
   register,
+  searchUsers,
   softDeleteUser,
   updateProfile,
   uploadProfilePicture,
@@ -17,10 +18,13 @@ import {
   adminResetPassword,
   forgotPassword,
   login,
+  logout,
   protect,
   resetPassword,
   restictTo,
+  updateFcmToken,
   updatePassword,
+  verifyEmail,
 } from "../middlewares/auth.js";
 import upload from "../middlewares/upload.js";
 import { authLimiter } from "../middlewares/rateLimiters.js";
@@ -35,6 +39,7 @@ userRouter.post("/forgot-password",authLimiter, forgotPassword);
 userRouter.post("/reset-password/:token",authLimiter, resetPassword);
 userRouter.post("/me/update-password",authLimiter, protect, updatePassword);
 
+userRouter.patch("/me/fcm-token", protect, updateFcmToken);
 userRouter.get("/me", protect, getProfile);
 userRouter.patch("/me", protect, updateProfile);
 userRouter.patch(
@@ -43,8 +48,11 @@ userRouter.patch(
   upload.single("profilePicture"),
   uploadProfilePicture,
 );
+userRouter.get("/search", protect, searchUsers)
 userRouter.delete("/me", protect, softDeleteUser);
 userRouter.get("/:slug", protect, getOthersProfile);
+userRouter.post("/logout", logout);
+userRouter.get("/verify-email/:token", verifyEmail)
 
 //ADMIN ROUTES
 adminRouter.get("/users", protect, restictTo("admin"), getAllUsers);

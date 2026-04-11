@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import User from "./models/User.js";
 import Message from "./models/Message.js";
 import Match from "./models/Match.js";
+import { sendPushNotification } from "./utils/firebase.js";
 
 // Socket.io equivalent of catchAsync
 const catchSocketAsync =
@@ -98,6 +99,14 @@ export const initSocket = (io) => {
           content,
           type,
         });
+        // After Message.create()
+        const receiver = await User.findById(receiverId).select("+fcmToken");
+        await sendPushNotification(
+          receiver.fcmToken,
+          `New message from ${socket.user.username}`,
+          content,
+          { type: "message", matchId },
+        );
 
         io.to(matchId).emit("receive_message", {
           _id: message._id,

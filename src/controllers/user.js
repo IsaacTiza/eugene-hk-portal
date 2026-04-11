@@ -1,6 +1,8 @@
 import AppError from "../utils/appError.js";
 import User from "../models/User.js";
 import { catchAsync } from "../utils/catchAsync.js";
+import { sendEmail } from "../utils/email.js";
+import APIFeatures from "../utils/apiFeatures.js";
 
 export const register = catchAsync(async (req, res, next) => {
   console.log("first logging", req.body);
@@ -38,12 +40,29 @@ export const register = catchAsync(async (req, res, next) => {
     location,
     matchPreferences,
   });
+
+  const verificationToken = user.createEmailVerificationToken();
+  await user.save({ validateBeforeSave: false });
+  const verificationURL = `http://10.81.85.7:5000/hk-portal/v1/verify-email/${verificationToken}`;
+  try {
+    await sendEmail({
+      to: "i2493053@gmail.com",
+      subject: "Verify your Email for HK Portal",
+      html: `<p>Hi ${user.username},</p><p>Please click on the link to verify your email: <a href="${verificationURL}">Verify Email</a></p>`,
+    });
+  } catch (err) {
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpiresAt = undefined;
+    await user.save({ validateBeforeSave: false });
+    throw new AppError(
+      "Error sending verification email. Please try again.",
+      500,
+    );
+  }
   res.status(201).json({
     status: "success",
-    data: {
-      username: user.username,
-      email: user.email,
-    },
+    message:
+      "User registered successfully. Please check your email to verify your account.",
   });
 });
 export const getProfile = catchAsync(async (req, res, next) => {
@@ -109,7 +128,6 @@ export const uploadProfilePicture = catchAsync(async (req, res, next) => {
   if (!req.file) return next(new AppError("Please upload an image", 400));
 
   const imageUrl = `${req.protocol}://${req.get("host")}/uploads/profilePictures/${req.file.filename}`;
-  
 
   const user = await User.findByIdAndUpdate(
     req.user.id,
@@ -129,6 +147,40 @@ export const softDeleteUser = catchAsync(async (req, res, next) => {
   res.status(204).json({
     status: `success`,
     data: null,
+  });
+});
+export const searchUsers = catchAsync(async (req, res, next) => {
+  if (!req.query.q) {
+    return next(new AppError("Please provide a search query", 400));
+  }
+
+  const searchQuery = {
+    $or: [
+      { username: { $regex: req.query.q, $options: "i" } },
+      { "location.city": { $regex: req.query.q, $options: "i" } },
+      { occupation: { $regex: req.query.q, $options: "i" } },
+      { interests: { $regex: req.query.q, $options: "i" } },
+      { hobbies: { $regex: req.query.q, $options: "i" } },
+      { bio: { $regex: req.query.q, $options: "i" } },
+    ],
+    isActive: true,
+    isDeleted: false,
+    isVerified: true,
+    _id: { $ne: req.user._id },
+  };
+
+  const features = new APIFeatures(User.find(searchQuery), req.query)
+    .sort()
+    .paginate();
+
+  const users = await features.query.select(
+    "username slug bio age gender occupation interests hobbies profilePicture location.city location.country lastActive",
+  );
+
+  res.status(200).json({
+    status: "success",
+    usersLength: users.length,
+    data: { users },
   });
 });
 

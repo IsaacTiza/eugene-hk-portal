@@ -5,18 +5,20 @@ import AppError from "../utils/appError.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import crypto from "crypto";
 import { sendEmail } from "../utils/email.js";
-import { saveUserJWT } from "../utils/saveUserJWT.js";
-
 
 export const protect = catchAsync(async (req, res, next) => {
   let token;
 
-  if (
+  // Check cookie first (web), then Authorization header (fallback)
+  if (req.cookies && req.cookies.jwt) {
+    token = req.cookies.jwt;
+  } else if (
     req.headers.authorization &&
     req.headers.authorization.startsWith("Bearer")
   ) {
     token = req.headers.authorization.split(" ")[1];
   }
+
   if (!token) {
     throw new AppError(
       "You are not logged in. Please log in to get access.",
@@ -24,11 +26,11 @@ export const protect = catchAsync(async (req, res, next) => {
     );
   }
 
-  let decoded = jwt.verify(token, process.env.JWT_SECRET);
+  const decoded = jwt.verify(token, process.env.JWT_SECRET);
   const user = await User.findById(decoded.id);
   if (!user || user.isDeleted) {
     throw new AppError(
-      "The user belonging to this token does no longer exist.",
+      "The user belonging to this token no longer exists.",
       401,
     );
   }
@@ -50,11 +52,23 @@ export const login = catchAsync(async (req, res, next) => {
   if (!user || !(await user.comparepassword(password))) {
     throw new AppError("Incorrect email or password", 401);
   }
-  const token = signJWT({ id: user._id });
-  // await saveUserJWT(user.username, token);  
+  // Add after password check
+  if (!user.isVerified) {
+    throw new AppError("Please verify your email before logging in.", 401);
+  }
+
+  signJWT({ id: user._id }, res);
+
   res.status(200).json({
     status: "success",
-    token,
+    data: {
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+    },
   });
 });
 export const forgotPassword = catchAsync(async (req, res, next) => {
@@ -80,96 +94,151 @@ export const forgotPassword = catchAsync(async (req, res, next) => {
     user.passwordResetToken = undefined;
     user.passwordExpiresAt = undefined;
     await user.save({ validateBeforeSave: false });
-    throw new AppError("There was an error sending the email. Try again later.", 500);
+    throw new AppError(
+      "There was an error sending the email. Try again later.",
+      500,
+    );
   }
   console.log(resetURL);
   res.status(200).json({
     status: "success",
     message: "Token sent to email!",
-    resetURL,
   });
 });
 export const resetPassword = catchAsync(async (req, res, next) => {
-
-console.log("Received reset password request with token:", req.params.resetToken);
+  console.log(
+    "Received reset password request with token:",
+    req.params.resetToken,
+  );
 
   const hashedToken = crypto
     .createHash("sha256")
     .update(req.params.token)
     .digest("hex");
 
-const user = await User.findOne({
+  const user = await User.findOne({
     passwordResetToken: hashedToken,
     passwordExpiresAt: { $gt: Date.now() },
-  }).select('+password');
+  }).select("+password");
   if (!user) {
     throw new AppError("Token Expired!", 401);
   }
-  
-  const { password, passwordConfirm } = req.body
+
+  const { password, passwordConfirm } = req.body;
   user.password = password;
-  user.passwordConfirm = passwordConfirm
+  user.passwordConfirm = passwordConfirm;
   user.passwordResetToken = undefined;
   user.passwordExpiresAt = undefined;
-  await user.save()
+  await user.save();
 
   res.status(200).json({
     status: `success`,
-    message:`Password Changed Succefully!`
-  })
+    message: `Password Changed Succefully!`,
+  });
 });
 export const updatePassword = catchAsync(async (req, res, next) => {
-  const user = await User.findById(req.user._id).select('+password')
-  const { currentPassword, newPassword, newPasswordConfirm } = req.body
+  const user = await User.findById(req.user._id).select("+password");
+  const { currentPassword, newPassword, newPasswordConfirm } = req.body;
 
   if (!currentPassword || !newPassword || !newPasswordConfirm) {
-    throw new AppError('Please provide all required fields', 400)
+    throw new AppError("Please provide all required fields", 400);
   }
-  if(!await user.comparepassword(currentPassword)) {
-    throw new AppError('Incorrect current password', 401)
+  if (!(await user.comparepassword(currentPassword))) {
+    throw new AppError("Incorrect current password", 401);
   }
-  user.password = newPassword
-  user.passwordConfirm = newPasswordConfirm
-  await user.save()
+  user.password = newPassword;
+  user.passwordConfirm = newPasswordConfirm;
+  await user.save();
 
-  const newToken = signJWT({ id: user._id })
+  // Replace token return with cookie
+  signJWT({ id: user._id }, res);
+
+  res.status(200).json({
+    status: "success",
+    message: "Password Updated Successfully!",
+  });
+});
+export const restictTo = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      throw new AppError(
+        "You do not have permission to perform this action",
+        403,
+      );
+    }
+    next();
+  };
+};
+export const updateFcmToken = catchAsync(async (req, res, next) => {
+  const { fcmToken } = req.body;
+  if (!fcmToken) return next(new AppError("FCM token is required", 400));
+
+  await User.findByIdAndUpdate(req.user._id, { fcmToken });
+
+  res.status(200).json({
+    status: "success",
+    message: "FCM token updated",
+  });
+});
+export const logout = catchAsync(async (req, res, next) => {
+  res.cookie("jwt", "loggedout", {
+    httpOnly: true,
+    expires: new Date(Date.now() + 1000), // expires in 1 second
+  });
+
+  res.status(200).json({
+    status: "success",
+    message: "Logged out successfully",
+  });
+});
+export const verifyEmail = catchAsync(async (req, res, next) => {
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(req.params.token)
+    .digest("hex");
+  const user = await User.findOne({
+    emailVerificationToken: hashedToken,
+    emailVerificationExpiresAt: { $gt: Date.now() },
+  });
+  console.log("Email verification attempt for token:", req.params.token);
+  if (!user) {
+    throw new AppError("Token Expired!", 401);
+  }
+  user.isVerified = true;
+  user.emailVerificationToken = undefined;
+  user.emailVerificationExpiresAt = undefined;
+  console.log(user);
+  await user.save({ validateBeforeSave: false });
+
+  res.status(200).json({
+    status: "success",
+    message: "Email verified successfully!   Log in to continue.",
+  });
+});
+
+//ADMIN AUTHENTICATION
+export const adminResetPassword = catchAsync(async (req, res, next) => {
+  let user = await User.findOne({ slug: req.params.slug }).select("+password");
+  if (!user) {
+    user = await User.findById(req.params.slug).select("+password");
+  }
+  if (!user) {
+    user = await User.findOne({ email: req.params.slug }).select("+password");
+  }
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+  const { newPassword, newPasswordConfirm } = req.body;
+
+  if (!newPassword || !newPasswordConfirm) {
+    throw new AppError("Please provide all required fields", 400);
+  }
+  user.password = newPassword;
+  user.passwordConfirm = newPasswordConfirm;
+  await user.save();
 
   res.status(200).json({
     status: `success`,
     message: `Password Updated Successfully! Please log in again.`,
-    token: newToken
-  })
-})
-export const restictTo = (...roles) => {
-  return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      throw new AppError('You do not have permission to perform this action', 403)
-    }
-    next()
-  }
-}
-
-//ADMIN AUTHENTICATION
-export const adminResetPassword = catchAsync(async (req, res, next) => {
-  const user = await User.findOne({ slug: req.params.slug }).select('+password')
-  if (!user) {
-    user = await User.findById(req.params.slug).select('+password')
-  }
-  if (!user) { user = await User.findOne({ email: req.params.slug }).select('+password') }
-  if (!user) {
-    throw new AppError('User not found', 404)
-  }
-  const { newPassword, newPasswordConfirm } = req.body
-
-  if (!newPassword || !newPasswordConfirm) {
-    throw new AppError('Please provide all required fields', 400)
-  }
-  user.password = newPassword
-  user.passwordConfirm = newPasswordConfirm
-  user.save()
-
-  res.status(200).json({
-    status: `success`,
-    message: `Password Updated Successfully! Please log in again.`
-  })
-})
+  });
+});
