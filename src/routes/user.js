@@ -9,6 +9,7 @@ import {
   getProfile,
   getUserById,
   register,
+  searchUsers,
   softDeleteUser,
   updateProfile,
   uploadProfilePicture,
@@ -47,10 +48,11 @@ userRouter.patch(
   upload.single("profilePicture"),
   uploadProfilePicture,
 );
+userRouter.get("/search", protect, searchUsers)
 userRouter.delete("/me", protect, softDeleteUser);
 userRouter.get("/:slug", protect, getOthersProfile);
 userRouter.post("/logout", logout);
-userRouter.get("/verify-email/:token",verifyEmail)
+userRouter.get("/verify-email/:token", verifyEmail)
 
 //ADMIN ROUTES
 adminRouter.get("/users", protect, restictTo("admin"), getAllUsers);

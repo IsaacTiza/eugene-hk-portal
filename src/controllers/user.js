@@ -2,6 +2,7 @@ import AppError from "../utils/appError.js";
 import User from "../models/User.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import { sendEmail } from "../utils/email.js";
+import APIFeatures from "../utils/apiFeatures.js";
 
 export const register = catchAsync(async (req, res, next) => {
   console.log("first logging", req.body);
@@ -146,6 +147,40 @@ export const softDeleteUser = catchAsync(async (req, res, next) => {
   res.status(204).json({
     status: `success`,
     data: null,
+  });
+});
+export const searchUsers = catchAsync(async (req, res, next) => {
+  if (!req.query.q) {
+    return next(new AppError("Please provide a search query", 400));
+  }
+
+  const searchQuery = {
+    $or: [
+      { username: { $regex: req.query.q, $options: "i" } },
+      { "location.city": { $regex: req.query.q, $options: "i" } },
+      { occupation: { $regex: req.query.q, $options: "i" } },
+      { interests: { $regex: req.query.q, $options: "i" } },
+      { hobbies: { $regex: req.query.q, $options: "i" } },
+      { bio: { $regex: req.query.q, $options: "i" } },
+    ],
+    isActive: true,
+    isDeleted: false,
+    isVerified: true,
+    _id: { $ne: req.user._id },
+  };
+
+  const features = new APIFeatures(User.find(searchQuery), req.query)
+    .sort()
+    .paginate();
+
+  const users = await features.query.select(
+    "username slug bio age gender occupation interests hobbies profilePicture location.city location.country lastActive",
+  );
+
+  res.status(200).json({
+    status: "success",
+    usersLength: users.length,
+    data: { users },
   });
 });
 
