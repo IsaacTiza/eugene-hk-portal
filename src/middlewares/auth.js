@@ -5,7 +5,6 @@ import AppError from "../utils/appError.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import crypto from "crypto";
 import { sendEmail } from "../utils/email.js";
-import { saveUserJWT } from "../utils/saveUserJWT.js";
 
 
 export const protect = catchAsync(async (req, res, next) => {
@@ -51,7 +50,6 @@ export const login = catchAsync(async (req, res, next) => {
     throw new AppError("Incorrect email or password", 401);
   }
   const token = signJWT({ id: user._id });
-  // await saveUserJWT(user.username, token);  
   res.status(200).json({
     status: "success",
     token,
@@ -148,6 +146,17 @@ export const restictTo = (...roles) => {
     next()
   }
 }
+export const updateFcmToken = catchAsync(async (req, res, next) => {
+  const { fcmToken } = req.body;
+  if (!fcmToken) return next(new AppError("FCM token is required", 400));
+
+  await User.findByIdAndUpdate(req.user._id, { fcmToken });
+
+  res.status(200).json({
+    status: "success",
+    message: "FCM token updated",
+  });
+});
 
 //ADMIN AUTHENTICATION
 export const adminResetPassword = catchAsync(async (req, res, next) => {

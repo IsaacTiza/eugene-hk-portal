@@ -20,6 +20,7 @@ import {
   protect,
   resetPassword,
   restictTo,
+  updateFcmToken,
   updatePassword,
 } from "../middlewares/auth.js";
 import upload from "../middlewares/upload.js";
@@ -35,6 +36,7 @@ userRouter.post("/forgot-password",authLimiter, forgotPassword);
 userRouter.post("/reset-password/:token",authLimiter, resetPassword);
 userRouter.post("/me/update-password",authLimiter, protect, updatePassword);
 
+userRouter.patch("/me/fcm-token", protect, updateFcmToken);
 userRouter.get("/me", protect, getProfile);
 userRouter.patch("/me", protect, updateProfile);
 userRouter.patch(

@@ -95,7 +95,7 @@ const userSchema = new mongoose.Schema(
     },
     interests: [
       {
-        type:String,
+        type: String,
       },
     ],
     hobbies: [
@@ -127,6 +127,10 @@ const userSchema = new mongoose.Schema(
     isVerified: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
     lastActive: { type: Date, default: Date.now },
+    fcmToken: {
+      type: String,
+      select: false,
+    },
   },
   {
     timestamps: true,

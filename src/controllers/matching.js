@@ -3,6 +3,7 @@ import Match from "../models/Match.js";
 import User from "../models/User.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
+import { sendPushNotification } from "../utils/firebase.js";
 
 export const swipe = catchAsync(async (req, res, next) => {
   const { action } = req.body;
@@ -38,6 +39,17 @@ export const swipe = catchAsync(async (req, res, next) => {
       await Match.create({ users: [req.user._id, receiver._id] });
       matched = true;
     }
+  }
+  // After Match.create()
+  if (matched) {
+    // Notify the other user they have a new match
+    const receiver = await User.findById(receiverId).select("+fcmToken");
+    await sendPushNotification(
+      receiver.fcmToken,
+      "New Match! 🎉",
+      `You matched with ${req.user.username}`,
+      { type: "match", matchId: match._id.toString() },
+    );
   }
 
   res.status(200).json({
