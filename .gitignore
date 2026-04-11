@@ -1,3 +1,13 @@
-node_modules
-.env
-src/uploads
+# Backend
+backend/node_modules
+backend/.env
+backend/src/uploads
+
+# Frontend
+frontend/node_modules
+frontend/dist
+frontend/.env
+
+# General
+.DS_Store
+*.log
