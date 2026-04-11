@@ -131,6 +131,8 @@ const userSchema = new mongoose.Schema(
       type: String,
       select: false,
     },
+    emailVerificationToken: String,
+    emailVerificationExpiresAt: Date,
   },
   {
     timestamps: true,
@@ -179,6 +181,18 @@ userSchema.methods.createPasswordResetToken = function () {
     .digest("hex");
 
   this.passwordExpiresAt = Date.now() + 1000 * 60 * 10;
+
+  return resetToken;
+};
+userSchema.methods.createEmailVerificationToken = function () {
+  const resetToken = crypto.randomBytes(32).toString("hex");
+
+  this.emailVerificationToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  this.emailVerificationExpiresAt = Date.now() + 1000 * 60 * 10;
 
   return resetToken;
 };

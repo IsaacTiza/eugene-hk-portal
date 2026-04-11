@@ -1,6 +1,7 @@
 import AppError from "../utils/appError.js";
 import User from "../models/User.js";
 import { catchAsync } from "../utils/catchAsync.js";
+import { sendEmail } from "../utils/email.js";
 
 export const register = catchAsync(async (req, res, next) => {
   console.log("first logging", req.body);
@@ -38,12 +39,29 @@ export const register = catchAsync(async (req, res, next) => {
     location,
     matchPreferences,
   });
+
+  const verificationToken = user.createEmailVerificationToken();
+  await user.save({ validateBeforeSave: false });
+  const verificationURL = `http://10.81.85.7:5000/hk-portal/v1/verify-email/${verificationToken}`;
+  try {
+    await sendEmail({
+      to: "i2493053@gmail.com",
+      subject: "Verify your Email for HK Portal",
+      html: `<p>Hi ${user.username},</p><p>Please click on the link to verify your email: <a href="${verificationURL}">Verify Email</a></p>`,
+    });
+  } catch (err) {
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpiresAt = undefined;
+    await user.save({ validateBeforeSave: false });
+    throw new AppError(
+      "Error sending verification email. Please try again.",
+      500,
+    );
+  }
   res.status(201).json({
     status: "success",
-    data: {
-      username: user.username,
-      email: user.email,
-    },
+    message:
+      "User registered successfully. Please check your email to verify your account.",
   });
 });
 export const getProfile = catchAsync(async (req, res, next) => {
@@ -109,7 +127,6 @@ export const uploadProfilePicture = catchAsync(async (req, res, next) => {
   if (!req.file) return next(new AppError("Please upload an image", 400));
 
   const imageUrl = `${req.protocol}://${req.get("host")}/uploads/profilePictures/${req.file.filename}`;
-  
 
   const user = await User.findByIdAndUpdate(
     req.user.id,

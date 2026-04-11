@@ -17,11 +17,13 @@ import {
   adminResetPassword,
   forgotPassword,
   login,
+  logout,
   protect,
   resetPassword,
   restictTo,
   updateFcmToken,
   updatePassword,
+  verifyEmail,
 } from "../middlewares/auth.js";
 import upload from "../middlewares/upload.js";
 import { authLimiter } from "../middlewares/rateLimiters.js";
@@ -47,6 +49,8 @@ userRouter.patch(
 );
 userRouter.delete("/me", protect, softDeleteUser);
 userRouter.get("/:slug", protect, getOthersProfile);
+userRouter.post("/logout", logout);
+userRouter.get("/verify-email/:token",verifyEmail)
 
 //ADMIN ROUTES
 adminRouter.get("/users", protect, restictTo("admin"), getAllUsers);
